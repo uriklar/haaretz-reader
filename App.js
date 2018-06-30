@@ -1,5 +1,5 @@
 import React from "react";
-import { StyleSheet, Text, View, WebView } from "react-native";
+import { StyleSheet, SafeAreaView, View, WebView } from "react-native";
 
 import Tts from "react-native-tts";
 
@@ -45,14 +45,22 @@ export default class App extends React.Component {
         "(" + String(patchPostMessageFunction) + ")();";
     }
     return (
-      <View style={styles.container}>
-        <WebView
-          injectedJavaScript={this.patchPostMessageJsCode}
-          source={{ uri: "https:/www.haaretz.co.il/" }}
-          style={{ position: "absolute", top: 0, right: 0, left: 0, bottom: 0 }}
-          onMessage={this.onMessage}
-        />
-      </View>
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.container}>
+          <WebView
+            injectedJavaScript={this.patchPostMessageJsCode}
+            source={{ uri: "https:/www.haaretz.co.il/" }}
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              left: 0,
+              bottom: 0
+            }}
+            onMessage={this.onMessage}
+          />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -98,5 +106,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     position: "relative"
-  }
+  },
+  safeArea: { flex: 1, backgroundColor: "#fff" }
 });
