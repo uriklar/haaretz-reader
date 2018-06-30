@@ -25,8 +25,11 @@ const patchPostMessageFunction = function() {
     const url = document
       .querySelector("meta[property='og:url']")
       .getAttribute("content");
+    const paragraphs = Array.from(document.querySelectorAll("section p")).map(
+      p => p.innerHTML
+    );
 
-    const articleData = { title, subtitle, url };
+    const articleData = { title, subtitle, url, paragraphs };
 
     window.postMessage(JSON.stringify({ articleData }));
   }
@@ -53,7 +56,7 @@ export default class App extends React.Component {
     );
   }
 
-  state = { url: null, title: null, subtitle: null };
+  state = { url: null, title: null, subtitle: null, paragraphs: null };
 
   onMessage = event => {
     try {
@@ -64,18 +67,27 @@ export default class App extends React.Component {
         this.state.url !== parsedData.articleData.url
       ) {
         this.setState(parsedData.articleData);
-        //this.speak(parsedData.articleData);
+        this.speak();
       }
     } catch (e) {
       console.log("error", e);
     }
   };
 
-  speak = data => {
+  speak = () => {
     Tts.getInitStatus().then(() => {
-      Tts.speak(data.title + " " + data.subtitle, {
+      const voiceParams = {
         iosVoiceId: "com.apple.ttsbundle.Carmit-compact"
-      });
+      };
+
+      Tts.speak(this.state.title, voiceParams);
+      Tts.speak(this.state.subtitle, voiceParams);
+
+      console.log(this.state.paragraphs);
+
+      this.state.paragraphs.forEach(paragraph =>
+        Tts.speak(paragraph, voiceParams)
+      );
 
       // Tts.voices().then(voices => console.log(voices));
     });
