@@ -1,40 +1,54 @@
 import React from "react";
-import { StyleSheet, SafeAreaView, View, WebView } from "react-native";
+import {
+  StyleSheet,
+  SafeAreaView,
+  View,
+  WebView,
+  TouchableHighlight,
+  Image
+} from "react-native";
 
 import Tts from "react-native-tts";
 
-const patchPostMessageFunction = function() {
-  var originalPostMessage = window.postMessage;
+import playIcon from "./assets/images/play40.png";
+import pauseIcon from "./assets/images/pause56.png";
 
-  var patchedPostMessage = function(message, targetOrigin, transfer) {
-    originalPostMessage(message, targetOrigin, transfer);
-  };
+const patchPostMessageFunction = () => {
+  const stripHTML = str => (str || "").replace(/<[^>]*>/g, "");
 
-  patchedPostMessage.toString = function() {
-    return String(Object.hasOwnProperty).replace(
-      "hasOwnProperty",
-      "postMessage"
-    );
-  };
+  try {
+    var originalPostMessage = window.postMessage;
 
-  window.postMessage = patchedPostMessage;
+    var patchedPostMessage = function(message, targetOrigin, transfer) {
+      originalPostMessage(message, targetOrigin, transfer);
+    };
 
-  if (!window.isHomePage) {
-    const title = document.querySelector("header h1").innerHTML;
-    const subtitle = document.querySelector("header p").innerHTML;
-    const url = document
-      .querySelector("meta[property='og:url']")
-      .getAttribute("content");
-    const paragraphs = Array.from(document.querySelectorAll("section p")).map(
-      p => p.innerHTML
-    );
+    patchedPostMessage.toString = function() {
+      return String(Object.hasOwnProperty).replace(
+        "hasOwnProperty",
+        "postMessage"
+      );
+    };
 
-    const articleData = { title, subtitle, url, paragraphs };
+    window.postMessage = patchedPostMessage;
 
-    window.postMessage(JSON.stringify({ articleData }));
+    if (!window.isHomePage) {
+      const title = stripHTML(document.querySelector("header h1").innerHTML);
+      const subtitle = stripHTML(document.querySelector("header p").innerHTML);
+      const url = document
+        .querySelector("meta[property='og:url']")
+        .getAttribute("content");
+      const paragraphs = Array.from(document.querySelectorAll("section p")).map(
+        p => stripHTML(p.innerHTML)
+      );
+
+      const articleData = { title, subtitle, url, paragraphs };
+
+      window.postMessage(JSON.stringify({ articleData }));
+    }
+  } catch (error) {
+    window.postMessage(JSON.stringify({ error }));
   }
-
-  //window.postMessage(document.querySelector("header h1").innerHTML);
 };
 
 export default class App extends React.Component {
@@ -47,6 +61,12 @@ export default class App extends React.Component {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
+          <View style={styles.actionsBar}>
+            <TouchableHighlight onPress={this.speak}>
+              <Image source={playIcon} />
+            </TouchableHighlight>
+            )
+          </View>
           <WebView
             injectedJavaScript={this.patchPostMessageJsCode}
             source={{ uri: "https:/www.haaretz.co.il/" }}
@@ -75,7 +95,10 @@ export default class App extends React.Component {
         this.state.url !== parsedData.articleData.url
       ) {
         this.setState(parsedData.articleData);
-        this.speak();
+      }
+
+      if (parsedData.error) {
+        console.log("ERROR", parsedData.error);
       }
     } catch (e) {
       console.log("error", e);
@@ -107,5 +130,8 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative"
   },
-  safeArea: { flex: 1, backgroundColor: "#fff" }
+  safeArea: { flex: 1, backgroundColor: "#fff" },
+  actionsBar: {
+    justifyContent: "center"
+  }
 });
