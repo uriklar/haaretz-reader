@@ -13,8 +13,21 @@ import Tts from "react-native-tts";
 import playIcon from "./assets/images/play40.png";
 import pauseIcon from "./assets/images/pause56.png";
 
+//pic.twitter.com\/[a-zA-z]+
+
 const patchPostMessageFunction = () => {
-  const stripHTML = str => (str || "").replace(/<[^>]*>/g, "");
+  const stripHTML = str =>
+    (str || "").replace(/<[^>]*>/g, "").replace(/nbsp;/g, " ");
+  const stripImages = str =>
+    (str || "").replace(/pic.twitter.com\/[a-zA-z]+/g, "");
+  const stripSpecialChars = str =>
+    (str || "").replace(/\(|\)|&|"|'|nbsp;/g, "");
+
+  const strip = str => stripSpecialChars(stripImages(stripHTML(str)));
+
+  const flatMap = (arr, lambda) => {
+    return Array.prototype.concat.apply([], arr.map(lambda));
+  };
 
   try {
     var originalPostMessage = window.postMessage;
@@ -33,16 +46,17 @@ const patchPostMessageFunction = () => {
     window.postMessage = patchedPostMessage;
 
     if (!window.isHomePage) {
-      const title = stripHTML(document.querySelector("header h1").innerHTML);
-      const subtitle = stripHTML(document.querySelector("header p").innerHTML);
+      const title = strip(document.querySelector("header h1").innerHTML);
+      const subtitle = strip(document.querySelector("header p").innerHTML);
       const url = document
         .querySelector("meta[property='og:url']")
         .getAttribute("content");
-      const paragraphs = Array.from(document.querySelectorAll("section p")).map(
-        p => stripHTML(p.innerHTML)
+      const sentances = flatMap(
+        Array.from(document.querySelectorAll("section p")),
+        p => strip(p.innerHTML).split(".")
       );
 
-      const articleData = { title, subtitle, url, paragraphs };
+      const articleData = { title, subtitle, url, sentances };
 
       window.postMessage(JSON.stringify({ articleData }));
     }
@@ -62,10 +76,19 @@ export default class App extends React.Component {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.actionsBar}>
-            <TouchableHighlight onPress={this.speak}>
-              <Image source={playIcon} />
-            </TouchableHighlight>
+            {this.state.voice &&
+              !this.state.speaking && (
+                <TouchableHighlight onPress={() => this.setSpeaking(true)}>
+                  <Image source={playIcon} />
+                </TouchableHighlight>
+              )}
             )
+            {this.state.voice &&
+              this.state.speaking && (
+                <TouchableHighlight onPress={() => this.setSpeaking(false)}>
+                  <Image source={pauseIcon} />
+                </TouchableHighlight>
+              )}
           </View>
           <WebView
             injectedJavaScript={this.patchPostMessageJsCode}
@@ -84,7 +107,49 @@ export default class App extends React.Component {
     );
   }
 
-  state = { url: null, title: null, subtitle: null, paragraphs: null };
+  state = {
+    url: null,
+    title: null,
+    subtitle: null,
+    sentances: null,
+    voices: [],
+    currentSentance: 0,
+    speaking: false
+  };
+
+  componentDidMount() {
+    Tts.getInitStatus().then(() => {
+      Tts.voices().then(voices => {
+        const hebrewVoices = voices.filter(v => v.language === "he-IL");
+
+        this.setState({ voice: hebrewVoices[0] });
+      });
+    });
+
+    Tts.addEventListener("tts-finish", () => {
+      console.log("finished sentance");
+      this.setState({ currentSentance: this.state.currentSentance + 1 });
+    });
+  }
+
+  componentDidUpdate(_prevProps, prevState) {
+    if (this.state.speaking && !prevState.speaking) {
+      return this.speak();
+    }
+
+    console.log(
+      "did update",
+      prevState.currentSentance,
+      this.state.currentSentance
+    );
+
+    if (
+      prevState.currentSentance < this.state.currentSentance &&
+      this.state.speaking
+    ) {
+      return this.speak();
+    }
+  }
 
   onMessage = event => {
     try {
@@ -98,30 +163,25 @@ export default class App extends React.Component {
       }
 
       if (parsedData.error) {
-        console.log("ERROR", parsedData.error);
+        //console.log("ERROR", parsedData.error);
       }
     } catch (e) {
-      console.log("error", e);
+      //  console.log("error", e);
     }
   };
 
+  setSpeaking = speaking => {
+    this.setState({ speaking });
+  };
+
   speak = () => {
-    Tts.getInitStatus().then(() => {
-      const voiceParams = {
-        iosVoiceId: "com.apple.ttsbundle.Carmit-compact"
-      };
+    const voiceParams = {
+      iosVoiceId: this.state.voice.id
+    };
 
-      Tts.speak(this.state.title, voiceParams);
-      Tts.speak(this.state.subtitle, voiceParams);
+    console.log("in speak with", this.state.currentSentance);
 
-      console.log(this.state.paragraphs);
-
-      this.state.paragraphs.forEach(paragraph =>
-        Tts.speak(paragraph, voiceParams)
-      );
-
-      // Tts.voices().then(voices => console.log(voices));
-    });
+    Tts.speak(this.state.sentances[this.state.currentSentance], voiceParams);
   };
 }
 
