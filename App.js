@@ -76,7 +76,8 @@ export default class App extends React.Component {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.container}>
           <View style={styles.actionsBar}>
-            {this.state.voice &&
+            {this.state.url &&
+              this.state.voice &&
               !this.state.speaking && (
                 <TouchableHighlight onPress={() => this.setSpeaking(true)}>
                   <Image source={playIcon} />
@@ -192,6 +193,7 @@ const styles = StyleSheet.create({
   },
   safeArea: { flex: 1, backgroundColor: "#fff" },
   actionsBar: {
-    justifyContent: "center"
+    justifyContent: "center",
+    backgroundColor: "#d3d3d3"
   }
 });
